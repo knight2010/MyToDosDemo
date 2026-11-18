@@ -3,6 +3,9 @@
 # 产出为未签名 .ipa,装真机需 AltStore/SideStore 等工具重签。
 name: Build IPA
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   push:
@@ -52,6 +55,16 @@ jobs:
           name: MyToDos-ipa
           path: MyToDos.ipa
           if-no-files-found: error
+
+      - name: Publish GitHub Release with IPA
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: MyToDos build ${{ github.run_number }}
+          body: |
+            Unsigned IPA built by GitHub Actions (commit ${{ github.sha }}).
+            未签名 ipa,装真机需 AltStore / SideStore 重签。
+          files: MyToDos.ipa
 
       # 上传到 pan(AList):需在仓库设置 Secrets: ALIST_TOKEN,
       # 和 Variables: ALIST_URL=https://pan.1919919.xyz
