@@ -55,22 +55,22 @@ jobs:
       # 上传到 pan(AList):需在仓库设置 Secrets: ALIST_TOKEN,
       # 和 Variables: ALIST_URL=https://pan.1919919.xyz
       - name: Ensure /ios dir on pan
-        if: ${{ vars.ALIST_URL != '' && secrets.ALIST_TOKEN != '' }}
         env:
           ALIST_URL: ${{ vars.ALIST_URL }}
           ALIST_TOKEN: ${{ secrets.ALIST_TOKEN }}
         run: |
+          if [ -z "$ALIST_TOKEN" ] || [ -z "$ALIST_URL" ]; then echo "skip: ALIST_TOKEN/ALIST_URL not set"; exit 0; fi
           curl -sf -X POST "$ALIST_URL/api/fs/mkdir" \
             -H "Authorization: $ALIST_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{"path":"/ios"}' || true
 
       - name: Upload IPA to pan /ios
-        if: ${{ vars.ALIST_URL != '' && secrets.ALIST_TOKEN != '' }}
         env:
           ALIST_URL: ${{ vars.ALIST_URL }}
           ALIST_TOKEN: ${{ secrets.ALIST_TOKEN }}
         run: |
+          if [ -z "$ALIST_TOKEN" ] || [ -z "$ALIST_URL" ]; then echo "skip: ALIST_TOKEN/ALIST_URL not set"; exit 0; fi
           curl -f -X PUT "$ALIST_URL/api/fs/put" \
             -H "Authorization: $ALIST_TOKEN" \
             -H "Content-Type: application/octet-stream" \
