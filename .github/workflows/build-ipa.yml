@@ -1,0 +1,79 @@
+# MyToDosDemo: GitHub Actions 编译未签名 IPA,上传到 pan 的 /ios 目录
+# 注意:工程绑定的是教程作者的 Team,CI 里无法做正式签名,
+# 产出为未签名 .ipa,装真机需 AltStore/SideStore 等工具重签。
+name: Build IPA
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'MyToDos/**'
+      - 'MyToDos.xcodeproj/**'
+      - '.github/workflows/build-ipa.yml'
+
+jobs:
+  build:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show Xcode / SDK
+        run: |
+          sudo xcode-select -s /Applications/Xcode.app || true
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i iphoneos
+
+      - name: Archive (unsigned)
+        run: |
+          xcodebuild -project MyToDos.xcodeproj \
+            -target MyToDos \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            archive -archivePath build/MyToDos.xcarchive
+
+      - name: Package IPA
+        run: |
+          APP_PATH=$(find build/MyToDos.xcarchive/Products/Applications -maxdepth 1 -name '*.app' | head -n 1)
+          echo "app: $APP_PATH"
+          rm -rf Payload && mkdir -p Payload
+          cp -r "$APP_PATH" Payload/
+          zip -qr MyToDos.ipa Payload
+          ls -lh MyToDos.ipa
+
+      - name: Upload IPA as Actions artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyToDos-ipa
+          path: MyToDos.ipa
+          if-no-files-found: error
+
+      # 上传到 pan(AList):需在仓库设置 Secrets: ALIST_TOKEN,
+      # 和 Variables: ALIST_URL=https://pan.1919919.xyz
+      - name: Ensure /ios dir on pan
+        if: ${{ vars.ALIST_URL != '' && secrets.ALIST_TOKEN != '' }}
+        env:
+          ALIST_URL: ${{ vars.ALIST_URL }}
+          ALIST_TOKEN: ${{ secrets.ALIST_TOKEN }}
+        run: |
+          curl -sf -X POST "$ALIST_URL/api/fs/mkdir" \
+            -H "Authorization: $ALIST_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"path":"/ios"}' || true
+
+      - name: Upload IPA to pan /ios
+        if: ${{ vars.ALIST_URL != '' && secrets.ALIST_TOKEN != '' }}
+        env:
+          ALIST_URL: ${{ vars.ALIST_URL }}
+          ALIST_TOKEN: ${{ secrets.ALIST_TOKEN }}
+        run: |
+          curl -f -X PUT "$ALIST_URL/api/fs/put" \
+            -H "Authorization: $ALIST_TOKEN" \
+            -H "Content-Type: application/octet-stream" \
+            -H "File-Path: /ios/MyToDos.ipa" \
+            --data-binary @MyToDos.ipa
+          echo "uploaded to pan /ios/MyToDos.ipa"
