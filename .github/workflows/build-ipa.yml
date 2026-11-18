@@ -26,8 +26,9 @@ jobs:
 
       - name: Archive (unsigned)
         run: |
+          xcodebuild -list -project MyToDos.xcodeproj
           xcodebuild -project MyToDos.xcodeproj \
-            -target MyToDos \
+            -scheme MyToDos \
             -configuration Release \
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
